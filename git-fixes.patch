@@ -1,0 +1,481 @@
+From d333fa320498c39615c4dad58b9864e1fc525540 Mon Sep 17 00:00:00 2001
+From: Eli Schwartz <eschwartz@archlinux.org>
+Date: Mon, 27 Sep 2021 02:56:39 -0400
+Subject: [PATCH] rename internal variables "_found" -> "_dep"
+
+These variables contain dependency objects, which might have a
+"not-found" value. Naming their variable references "found" is...
+confusing.
+---
+ meson.build | 38 +++++++++++++++++++-------------------
+ 1 file changed, 19 insertions(+), 19 deletions(-)
+
+diff --git a/meson.build b/meson.build
+index 3ce94fab..d2b8e06c 100644
+--- a/meson.build
++++ b/meson.build
+@@ -49,8 +49,8 @@ endforeach
+ endif
+ 
+ 
+-libm_found = cc.find_library('m')
+-libsixel_deps += [libm_found]
++libm_dep = cc.find_library('m')
++libsixel_deps += [libm_dep]
+ 
+ needed_headers = [
+   'assert.h',
+@@ -85,34 +85,34 @@ foreach a : needed_headers
+   assert(cc.has_header(a), 'Needed header not found')
+ endforeach
+ 
+-gdkpixbuf2_found = dependency('gdk-pixbuf-2.0', required: get_option('gdk-pixbuf2'))
+-gd_found = cc.find_library('gd', required: get_option('gd'))
+-curl_found = dependency('libcurl', required: get_option('libcurl'))
+-jpeg_found = dependency('libjpeg', required: get_option('jpeg'))
+-png_found = dependency('libpng', required: get_option('png'))
++gdkpixbuf2_dep = dependency('gdk-pixbuf-2.0', required: get_option('gdk-pixbuf2'))
++gd_dep = cc.find_library('gd', required: get_option('gd'))
++curl_dep = dependency('libcurl', required: get_option('libcurl'))
++jpeg_dep = dependency('libjpeg', required: get_option('jpeg'))
++png_dep = dependency('libpng', required: get_option('png'))
+ pymod = import('python')
+ python2_installation = pymod.find_installation('python2', required: get_option('python2'))
+ 
+-if get_option('libcurl').enabled() and curl_found.found()
++if get_option('libcurl').enabled() and curl_dep.found()
+   conf_data.set('HAVE_LIBCURL', true)
+-  libsixel_deps += [curl_found]
++  libsixel_deps += [curl_dep]
+ endif
+ 
+-if get_option('jpeg').enabled() and jpeg_found
++if get_option('jpeg').enabled() and jpeg_dep
+   conf_data.set('HAVE_JPEG', true)
+-  libsixel_deps += [jpeg_found]
++  libsixel_deps += [jpeg_dep]
+ endif
+ 
+-if get_option('png').enabled() and png_found
++if get_option('png').enabled() and png_dep
+   conf_data.set('HAVE_PNG', true)
+-  libsixel_deps += [png_found]
++  libsixel_deps += [png_dep]
+ endif
+ 
+ loaders = ['stb-image']
+ 
+-if get_option('gd').enabled() and gd_found.found()
++if get_option('gd').enabled() and gd_dep.found()
+   conf_data.set('HAVE_GD', true)
+-  libsixel_deps += [gd_found]
++  libsixel_deps += [gd_dep]
+   loaders += ['gd']
+ 
+   gd_funcs = [
+@@ -124,15 +124,15 @@ if get_option('gd').enabled() and gd_found.found()
+   ]
+ 
+   foreach f : gd_funcs
+-    if cc.has_function(f, dependencies: gd_found)
++    if cc.has_function(f, dependencies: gd_dep)
+       conf_data.set('HAVE_DECL_@0@'.format(f.to_upper()), true)
+     endif
+   endforeach
+ endif
+ 
+-if get_option('gdk-pixbuf2').enabled() and gdkpixbuf2_found.found()
++if get_option('gdk-pixbuf2').enabled() and gdkpixbuf2_dep.found()
+   conf_data.set('HAVE_GDK_PIXBUF2', true)
+-  libsixel_deps += [gdkpixbuf2_found]
++  libsixel_deps += [gdkpixbuf2_dep]
+   loaders += ['gdk-pixbuf2']
+ endif
+ 
+@@ -170,7 +170,7 @@ libsixel was configured as follows
+   '''.format(
+     get_option('prefix'),
+     ' '.join(loaders),
+-    curl_found.found(),
++    curl_dep.found(),
+     get_option('pkg_config_path'),
+     bashcompletiondir,
+     zshcompletiondir,
+From af3bce783d2604a439c9f90b6c9d9a4082b5fd32 Mon Sep 17 00:00:00 2001
+From: Eli Schwartz <eschwartz@archlinux.org>
+Date: Mon, 27 Sep 2021 02:56:40 -0400
+Subject: [PATCH] consistently check whether dependency objects were, in fact,
+ found
+
+---
+ meson.build | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/meson.build b/meson.build
+index d2b8e06c..a6a3be1b 100644
+--- a/meson.build
++++ b/meson.build
+@@ -98,12 +98,12 @@ if get_option('libcurl').enabled() and curl_dep.found()
+   libsixel_deps += [curl_dep]
+ endif
+ 
+-if get_option('jpeg').enabled() and jpeg_dep
++if get_option('jpeg').enabled() and jpeg_dep.found()
+   conf_data.set('HAVE_JPEG', true)
+   libsixel_deps += [jpeg_dep]
+ endif
+ 
+-if get_option('png').enabled() and png_dep
++if get_option('png').enabled() and png_dep.found()
+   conf_data.set('HAVE_PNG', true)
+   libsixel_deps += [png_dep]
+ endif
+From 150aecacd2467cd143ece18295a0bc1ed0b0413d Mon Sep 17 00:00:00 2001
+From: Eli Schwartz <eschwartz@archlinux.org>
+Date: Mon, 27 Sep 2021 02:56:41 -0400
+Subject: [PATCH] correctly use feature options
+
+In every case, feature options are passed to the required: kwarg, which
+means that:
+- if enabled, failure to find the dependency results in immediate error
+- if auto, try to find the dependency but disable it if not found
+- if disabled, log a message that the dependency was skipped
+
+It is not useful to then further check if the feature was enabled,
+before adding it into the built software. The only difference this ever
+makes is in the "auto" case, which then completely ignores that the user
+specified "auto", discards any found dependencies, and acts as though
+"disabled" was specified.
+
+Allow the feature options to fulfill their specified role.
+---
+ meson.build | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/meson.build b/meson.build
+index a6a3be1b..982d89d6 100644
+--- a/meson.build
++++ b/meson.build
+@@ -93,24 +93,24 @@ png_dep = dependency('libpng', required: get_option('png'))
+ pymod = import('python')
+ python2_installation = pymod.find_installation('python2', required: get_option('python2'))
+ 
+-if get_option('libcurl').enabled() and curl_dep.found()
++if curl_dep.found()
+   conf_data.set('HAVE_LIBCURL', true)
+   libsixel_deps += [curl_dep]
+ endif
+ 
+-if get_option('jpeg').enabled() and jpeg_dep.found()
++if jpeg_dep.found()
+   conf_data.set('HAVE_JPEG', true)
+   libsixel_deps += [jpeg_dep]
+ endif
+ 
+-if get_option('png').enabled() and png_dep.found()
++if png_dep.found()
+   conf_data.set('HAVE_PNG', true)
+   libsixel_deps += [png_dep]
+ endif
+ 
+ loaders = ['stb-image']
+ 
+-if get_option('gd').enabled() and gd_dep.found()
++if gd_dep.found()
+   conf_data.set('HAVE_GD', true)
+   libsixel_deps += [gd_dep]
+   loaders += ['gd']
+@@ -130,7 +130,7 @@ if get_option('gd').enabled() and gd_dep.found()
+   endforeach
+ endif
+ 
+-if get_option('gdk-pixbuf2').enabled() and gdkpixbuf2_dep.found()
++if gdkpixbuf2_dep.found()
+   conf_data.set('HAVE_GDK_PIXBUF2', true)
+   libsixel_deps += [gdkpixbuf2_dep]
+   loaders += ['gdk-pixbuf2']
+@@ -148,7 +148,7 @@ subdir('src')
+ subdir('converters')
+ subdir('tools')
+ 
+-if get_option('python2').enabled() and python2_installation.found()
++if python2_installation.found()
+   subdir('python')
+ endif
+ 
+From ca29aa64808375a3ec1c8bb826462c52a0ea25c8 Mon Sep 17 00:00:00 2001
+From: nick black <dankamongmen@gmail.com>
+Date: Thu, 30 Sep 2021 00:22:50 -0400
+Subject: [PATCH] gdk-pixbuf-2.0 for include
+
+---
+ src/loader.c | 4 ++--
+ src/status.c | 8 ++++----
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/src/loader.c b/src/loader.c
+index 30042afe..303f6cfc 100644
+--- a/src/loader.c
++++ b/src/loader.c
+@@ -30,7 +30,7 @@
+ #ifdef HAVE_GDK_PIXBUF2
+ //#   pragma GCC diagnostic push
+ //#   pragma GCC diagnostic ignored "-Wtypedef-redefinition"
+-# include <gdk-pixbuf/gdk-pixbuf.h>
++# include <gdk-pixbuf-2.0/gdk-pixbuf.h>
+ //#   pragma GCC diagnostic pop
+ #endif
+ #ifdef HAVE_GD
+@@ -109,7 +109,7 @@ stbi_free(void *p)
+ #endif
+ 
+ 
+-# if HAVE_JPEG
++#ifdef HAVE_JPEG
+ /* import from @uobikiemukot's sdump loader.h */
+ static SIXELSTATUS
+ load_jpeg(unsigned char **result,
+diff --git a/src/status.c b/src/status.c
+index 97f3b793..c7f8016d 100644
+--- a/src/status.c
++++ b/src/status.c
+@@ -266,28 +266,28 @@ test2(void)
+     }
+ #endif
+ 
+-#if HAVE_JPEG
++#ifdef HAVE_JPEG
+     message = sixel_helper_format_error(SIXEL_JPEG_ERROR);
+     if (strcmp(message, SIXEL_MESSAGE_JPEG_ERROR) != 0) {
+         goto error;
+     }
+ #endif
+ 
+-#if HAVE_LIBPNG
++#ifdef HAVE_LIBPNG
+     message = sixel_helper_format_error(SIXEL_PNG_ERROR);
+     if (strcmp(message, SIXEL_MESSAGE_PNG_ERROR) != 0) {
+         goto error;
+     }
+ #endif
+ 
+-#if HAVE_GD
++#ifdef HAVE_GD
+     message = sixel_helper_format_error(SIXEL_GD_ERROR);
+     if (strcmp(message, SIXEL_MESSAGE_GD_ERROR) != 0) {
+         goto error;
+     }
+ #endif
+ 
+-#if HAVE_GDK_PIXBUF2
++#ifdef HAVE_GDK_PIXBUF2
+     message = sixel_helper_format_error(SIXEL_GDK_ERROR);
+     if (strcmp(message, SIXEL_MESSAGE_GDK_ERROR) != 0) {
+         goto error;
+From 8caeacc102efe5c270a66b472d7057dff02de925 Mon Sep 17 00:00:00 2001
+From: nick black <dankamongmen@gmail.com>
+Date: Tue, 14 Dec 2021 17:44:08 -0500
+Subject: [PATCH] HAVE_LIBPNG -> HAVE_PNG
+
+about half of the compilation checks were using
+HAVE_LIBPNG, and the other half were using
+HAVE_PNG. converge on HAVE_PNG, matching the
+other declarations in config.h.
+---
+ src/loader.c | 18 ++++++++----------
+ src/status.c |  4 ++--
+ src/writer.c | 24 +++++++++---------------
+ 3 files changed, 19 insertions(+), 27 deletions(-)
+
+diff --git a/src/loader.c b/src/loader.c
+index d5595923..7e19b177 100644
+--- a/src/loader.c
++++ b/src/loader.c
+@@ -36,9 +36,9 @@
+ #ifdef HAVE_GD
+ # include <gd.h>
+ #endif
+-#ifdef HAVE_LIBPNG
++#ifdef HAVE_PNG
+ # include <png.h>
+-#endif  /* HAVE_LIBPNG */
++#endif  /* HAVE_PNG */
+ #ifdef HAVE_JPEG
+ # include <jpeglib.h>
+ #endif  /* HAVE_JPEG */
+@@ -81,10 +81,8 @@ stbi_free(void *p)
+ #define STBI_NO_GIF
+ #define STBI_NO_PNM
+ 
+-#ifdef HAVE_DIAGNOSTIC_SIGN_CONVERSION
+ # pragma GCC diagnostic push
+ # pragma GCC diagnostic ignored "-Wsign-conversion"
+-#endif
+ # pragma GCC diagnostic push
+ # pragma GCC diagnostic ignored "-Wstrict-overflow"
+ # pragma GCC diagnostic push
+@@ -182,7 +180,7 @@ load_jpeg(unsigned char **result,
+ # endif  /* HAVE_JPEG */
+ 
+ 
+-# if HAVE_LIBPNG
++# ifdef HAVE_PNG
+ static void
+ read_png(png_structp png_ptr,
+          png_bytep data,
+@@ -601,7 +599,7 @@ load_png(unsigned char      /* out */ **result,
+ }
+ # pragma GCC diagnostic pop
+ 
+-# endif  /* HAVE_LIBPNG */
++# endif  /* HAVE_PNG */
+ 
+ 
+ static SIXELSTATUS
+@@ -713,7 +711,7 @@ chunk_is_pnm(sixel_chunk_t const *chunk)
+ }
+ 
+ 
+-#ifdef HAVE_LIBPNG
++#ifdef HAVE_PNG
+ /* detect whether given chunk is PNG stream */
+ static int
+ chunk_is_png(sixel_chunk_t const *chunk)
+@@ -726,7 +724,7 @@ chunk_is_png(sixel_chunk_t const *chunk)
+     }
+     return 0;
+ }
+-#endif  /* HAVE_LIBPNG */
++#endif  /* HAVE_PNG */
+ 
+ 
+ /* detect whether given chunk is GIF stream */
+@@ -843,7 +841,7 @@ load_with_builtin(
+         }
+     }
+ #endif  /* HAVE_JPEG */
+-#ifdef HAVE_LIBPNG
++#ifdef HAVE_PNG
+     else if (chunk_is_png(pchunk)) {
+         status = sixel_frame_new(&frame, pchunk->allocator);
+         if (SIXEL_FAILED(status)) {
+@@ -865,7 +863,7 @@ load_with_builtin(
+             goto end;
+         }
+     }
+-#endif  /* HAVE_LIBPNG */
++#endif  /* HAVE_PNG */
+     else if (chunk_is_gif(pchunk)) {
+         fnp.fn = fn_load;
+         status = load_gif(pchunk->buffer,
+diff --git a/src/status.c b/src/status.c
+index c7f8016d..000be3c2 100644
+--- a/src/status.c
++++ b/src/status.c
+@@ -153,7 +153,7 @@ sixel_helper_format_error(
+             error_string = SIXEL_MESSAGE_JPEG_ERROR;
+             break;
+ #endif
+-#ifdef HAVE_LIBPNG
++#ifdef HAVE_PNG
+         case SIXEL_PNG_ERROR:
+             error_string = SIXEL_MESSAGE_PNG_ERROR;
+             break;
+@@ -273,7 +273,7 @@ test2(void)
+     }
+ #endif
+ 
+-#ifdef HAVE_LIBPNG
++#ifdef HAVE_PNG
+     message = sixel_helper_format_error(SIXEL_PNG_ERROR);
+     if (strcmp(message, SIXEL_MESSAGE_PNG_ERROR) != 0) {
+         goto error;
+diff --git a/src/writer.c b/src/writer.c
+index 0afb1bad..24b8584a 100644
+--- a/src/writer.c
++++ b/src/writer.c
+@@ -25,15 +25,15 @@
+ # include <stdio.h>
+ # include <stdlib.h>
+ # include <string.h>
+-#if HAVE_SETJMP_H
++#ifdef HAVE_SETJMP_H
+ # include <setjmp.h>
+ #endif  /* HAVE_SETJMP_H */
+ # include <errno.h>
+-#if HAVE_LIBPNG
++#ifdef HAVE_PNG
+ # include <png.h>
+ #else
+ # include "stb_image_write.h"
+-#endif  /* HAVE_LIBPNG */
++#endif  /* HAVE_PNG */
+ 
+ #include <sixel.h>
+ 
+@@ -44,12 +44,6 @@
+ #endif  /* !defined(O_BINARY) && !defined(_O_BINARY) */
+ 
+ 
+-#if !HAVE_LIBPNG
+-unsigned char *
+-stbi_write_png_to_mem(unsigned char *pixels, int stride_bytes,
+-                      int x, int y, int n, int *out_len);
+-#endif
+-
+ static SIXELSTATUS
+ write_png_to_file(
+     unsigned char       /* in */ *data,         /* source pixel data */
+@@ -64,7 +58,7 @@ write_png_to_file(
+     FILE *output_fp = NULL;
+     unsigned char *pixels = NULL;
+     unsigned char *new_pixels = NULL;
+-#if HAVE_LIBPNG
++#ifdef HAVE_PNG
+     int y;
+     png_structp png_ptr = NULL;
+     png_infop info_ptr = NULL;
+@@ -73,7 +67,7 @@ write_png_to_file(
+     unsigned char *png_data = NULL;
+     int png_len;
+     int write_len;
+-#endif  /* HAVE_LIBPNG */
++#endif  /* HAVE_PNG */
+     int i;
+     unsigned char *src;
+     unsigned char *dst;
+@@ -211,7 +205,7 @@ write_png_to_file(
+         }
+     }
+ 
+-#if HAVE_LIBPNG
++#ifdef HAVE_PNG
+     rows = sixel_allocator_malloc(allocator, (size_t)height * sizeof(unsigned char *));
+     if (rows == NULL) {
+         status = SIXEL_BAD_ALLOCATION;
+@@ -263,7 +257,7 @@ write_png_to_file(
+         sixel_helper_set_additional_message("fwrite() failed.");
+         goto end;
+     }
+-#endif  /* HAVE_LIBPNG */
++#endif  /* HAVE_PNG */
+ 
+     status = SIXEL_OK;
+ 
+@@ -271,14 +265,14 @@ write_png_to_file(
+     if (output_fp && output_fp != stdout) {
+         fclose(output_fp);
+     }
+-#if HAVE_LIBPNG
++#ifdef HAVE_PNG
+     sixel_allocator_free(allocator, rows);
+     if (png_ptr) {
+         png_destroy_write_struct(&png_ptr, &info_ptr);
+     }
+ #else
+     sixel_allocator_free(allocator, png_data);
+-#endif  /* HAVE_LIBPNG */
++#endif  /* HAVE_PNG */
+     sixel_allocator_free(allocator, new_pixels);
+ 
+     return status;
