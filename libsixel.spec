@@ -3,6 +3,7 @@
 %bcond_without	python2		# Python 2 bindings
 
 Summary:	A SIXEL encoder/decoder implementation
+Summary(pl.UTF-8):	Implementacja kodera/dekodera SIXEL
 Name:		libsixel
 Version:	1.10.3
 Release:	1
@@ -37,32 +38,54 @@ terminal.
 This package provides encoder/decoder implementation for DEC SIXEL
 graphics.
 
+%description -l pl.UTF-8
+SIXEL to jeden z formatów obrazów przeznaczonych dla drukarek i
+terminali, wprowadzony przez firmę Digital Equipment Corp. (DEC).
+Schemat danych jest reprezentowany jako sekwencja kodów terminalowych
+- więc aby wyświetlić plik obrazu SIXEL, wystarczy go wypisać na
+terminalu.
+
+Ten pakiet zawiera implementacją kodera/dekodera grafiki DEC SIXEL.
+
 %package devel
 Summary:	Header files for libsixel library
+Summary(pl.UTF-8):	Pliki nagłówkowe biblioteki libsixel
 Group:		Development/Libraries
 Requires:	%{name}%{?_isa} = %{version}-%{release}
 
 %description devel
 Header files for libsixel library.
 
+%description devel -l pl.UTF-8
+Pliki nagłówkowe biblioteki libsixel.
+
 %package static
 Summary:	Static libsixel library
+Summary(pl.UTF-8):	Statyczna biblioteka libsixel
 Group:		Development/Libraries
 Requires:	%{name}-devel%{?_isa} = %{version}-%{release}
 
 %description static
 Static libsixel library.
 
+%description static -l pl.UTF-8
+Statyczna biblioteka libsixel
+
 %package utils
 Summary:	Converter utilities to/from SIXEL format
+Summary(pl.UTF-8):	Narzędzia konwertujące na/z formatu SIXEL
 Group:		Applications/Graphics
 Requires:	%{name}%{?_isa} = %{version}-%{release}
 
 %description utils
 Converter utilities to/from SIXEL format.
 
+%description utils -l pl.UTF-8
+Narzędzia konwertujące na/z formatu SIXEL.
+
 %package -n python-libsixel
 Summary:	Python 2 bindings for libsixel
+Summary(pl.UTF-8):	Wiązania Pythona 2 do biblioteki libsixel
 Group:		Libraries/Python
 Requires:	%{name} = %{version}-%{release}
 Requires:	python-modules >= 1:2.3
@@ -70,6 +93,9 @@ BuildArch:	noarch
 
 %description -n python-libsixel
 Python 2 bindings for libsixel.
+
+%description -n python-libsixel -l pl.UTF-8
+Wiązania Pythona 2 do biblioteki libsixel.
 
 %prep
 %setup -q
@@ -83,7 +109,7 @@ Python 2 bindings for libsixel.
 %ninja_build -C build
 
 %if %{with python2}
-cd  python
+cd python
 %py_build
 cd ..
 %endif
@@ -94,7 +120,7 @@ rm -rf $RPM_BUILD_ROOT
 %ninja_install -C build
 
 %if %{with python2}
-cd  python
+cd python
 %py_install
 
 %py_postclean
