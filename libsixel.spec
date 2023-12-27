@@ -6,7 +6,7 @@ Summary:	A SIXEL encoder/decoder implementation
 Summary(pl.UTF-8):	Implementacja kodera/dekodera SIXEL
 Name:		libsixel
 Version:	1.10.3
-Release:	1
+Release:	2
 License:	MIT
 Group:		Libraries
 Source0:	https://github.com/libsixel/libsixel/archive/v%{version}/%{name}-%{version}.tar.gz
@@ -163,6 +163,7 @@ rm -rf $RPM_BUILD_ROOT
 %files -n python-libsixel
 %defattr(644,root,root,755)
 %doc python/README.rst
+%dir %{py_sitescriptdir}/libsixel
 %{py_sitescriptdir}/libsixel/*.py[co]
 %{py_sitescriptdir}/libsixel_python-*-py*.egg-info
 %endif
