@@ -102,11 +102,11 @@ Wiązania Pythona 2 do biblioteki libsixel.
 %patch -P0 -p1
 
 %build
-%meson build \
+%meson \
 	-Dbashcompletiondir="%{bash_compdir}" \
 	-Dzshcompletiondir="%{zsh_compdir}"
 
-%ninja_build -C build
+%meson_build
 
 %if %{with python2}
 cd python
@@ -117,7 +117,7 @@ cd ..
 %install
 rm -rf $RPM_BUILD_ROOT
 
-%ninja_install -C build
+%meson_install
 
 %if %{with python2}
 cd python
